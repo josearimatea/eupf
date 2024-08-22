@@ -18,7 +18,7 @@ pfcpSESReqNoSDF = PFCP(version=1, S=1, seq=2, seid=0, spare_oct=0) / \
              IE_ForwardingParameters(IE_list=[
                  IE_DestinationInterface(interface="Access"),
                  IE_NetworkInstance(instance="access"),
-                 IE_OuterHeaderCreation(GTPUUDPIPV4=1, TEID=0x01000000, ipv4="10.23.118.70"),
+                 IE_OuterHeaderCreation(GTPUUDPIPV4=1, TEID=0x01000000, ipv4="172.17.0.1"),
              ])
          ]),
          IE_CreateFAR(IE_list=[
@@ -44,12 +44,24 @@ pfcpSESReqNoSDF = PFCP(version=1, S=1, seq=2, seid=0, spare_oct=0) / \
 # https://stackoverflow.com/questions/41166420/sending-a-packet-over-physical-loopback-in-scapy
 conf.L3socket=L3RawSocket
 
-target = IP(dst="127.0.0.1")/UDP(sport=33100,dport=8805)
+target = IP(dst="172.17.0.2")/UDP(sport=33100,dport=8805)
 
 print ("Sending PFCP Association Setup Request")
-ans = sr1(target/pfcpASReq, iface='lo')
+ans = sr1(target/pfcpASReq, iface='docker0')
 print(ans.show())
 
 print ("Sending PFCP Session Setup Request without SDF")
-ans = sr1(target/pfcpSESReqNoSDF, iface='lo')
+ans = sr1(target/pfcpSESReqNoSDF, iface='docker0')
 print(ans.show())
+
+# Capturar e imprimir o SEID da resposta de estabelecimento de sessão
+if PFCP in ans and PFCPSessionEstablishmentResponse in ans:
+    response = ans[PFCP][PFCPSessionEstablishmentResponse]
+    # Iterar sobre os elementos IE_list para encontrar o IE_FSEID
+    for ie in response.IE_list:
+        if ie.ietype == "F-SEID":
+            seid_established = ie.seid
+            print(f"SEID estabelecido: {seid_established}")
+            break
+else:
+    print("Erro: Não foi possível capturar o SEID da resposta.")
